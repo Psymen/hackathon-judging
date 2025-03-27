@@ -9,23 +9,52 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trophy } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const { register, loading } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-
-    // Simulate registration - in a real app, this would be an API call
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/login")
-    }, 1000)
+    setError("")
+    
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long")
+      return
+    }
+    
+    try {
+      const success = await register(name, email, password)
+      
+      if (success) {
+        toast({
+          title: "Registration successful",
+          description: "Your account has been created. Please wait for admin approval.",
+        })
+        router.push("/judge/events")
+      } else {
+        setError("Email already in use or registration failed")
+        toast({
+          title: "Registration failed",
+          description: "Email already in use or registration failed. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      setError("An error occurred during registration")
+      toast({
+        title: "Registration error",
+        description: "An error occurred during registration. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -66,8 +95,13 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+            {error && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
           <div className="text-center text-sm">

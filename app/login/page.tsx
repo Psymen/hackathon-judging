@@ -9,23 +9,52 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trophy } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const { login, loading } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-
-    // Simulate login - in a real app, this would be an API call
-    setTimeout(() => {
-      setIsLoading(false)
-      // Redirect to dashboard based on role (admin/judge)
-      router.push("/admin/dashboard")
-    }, 1000)
+    setError("")
+    
+    try {
+      const success = await login(email, password)
+      
+      if (success) {
+        toast({
+          title: "Login successful",
+          description: "You have been logged in successfully.",
+        })
+        
+        // Redirect based on role (would be determined from the user object in a real app)
+        if (email.includes('admin')) {
+          router.push("/admin/dashboard")
+        } else {
+          router.push("/judge/events")
+        }
+      } else {
+        setError("Invalid email or password")
+        toast({
+          title: "Login failed",
+          description: "Invalid email or password. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (err) {
+      setError("An error occurred during login")
+      toast({
+        title: "Login error",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -67,8 +96,13 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
+            {error && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
           <div className="text-center text-sm">
