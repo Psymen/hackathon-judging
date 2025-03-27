@@ -1,59 +1,121 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import AdminLayout from "@/components/admin-layout"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CalendarDays, Plus, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { Plus } from "lucide-react"
 import Link from "next/link"
+import { EventCard } from "@/components/admin/events/event-card"
+import { EventFilters, type EventFilters as EventFiltersType } from "@/components/admin/events/event-filters"
+import { mockAPI, type Event } from "@/lib/mock-data"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function EventsPage() {
-  // Mock data for events
-  const events = [
-    {
-      id: 1,
-      name: "Summer Hackathon 2025",
-      date: "Jun 15-16, 2025",
-      status: "Active",
-      judges: 8,
-      projects: 32,
-      description: "A two-day event focused on innovative solutions for climate change.",
-    },
-    {
-      id: 2,
-      name: "AI Innovation Challenge",
-      date: "May 5-6, 2025",
-      status: "Completed",
-      judges: 12,
-      projects: 45,
-      description: "Exploring the frontiers of artificial intelligence and machine learning.",
-    },
-    {
-      id: 3,
-      name: "Web3 Developers Jam",
-      date: "Apr 20-21, 2025",
-      status: "Completed",
-      judges: 10,
-      projects: 38,
-      description: "Building the future of decentralized applications and blockchain technology.",
-    },
-    {
-      id: 4,
-      name: "Mobile App Hackathon",
-      date: "Mar 10-11, 2025",
-      status: "Completed",
-      judges: 8,
-      projects: 27,
-      description: "Creating innovative mobile applications to solve everyday problems.",
-    },
-    {
-      id: 5,
-      name: "Health Tech Summit",
-      date: "Feb 15-16, 2025",
-      status: "Completed",
-      judges: 14,
-      projects: 42,
-      description: "Developing technology solutions for healthcare challenges.",
-    },
-  ]
+  const [events, setEvents] = useState<Event[]>([])
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [eventStats, setEventStats] = useState<Record<string, { judges: number; projects: number }>>({})
+  const { toast } = useToast()
+
+  // Fetch events data
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const eventsData = await mockAPI.getEvents()
+        setEvents(eventsData)
+        setFilteredEvents(eventsData)
+        
+        // Get judge and project counts for each event
+        const stats: Record<string, { judges: number; projects: number }> = {}
+        
+        await Promise.all(
+          eventsData.map(async (event) => {
+            // Get judge count
+            const participations = await mockAPI.getEventParticipationsByEventId(event.id)
+            const approvedJudges = participations.filter(p => p.status === 'approved').length
+            
+            // Get project count
+            const projects = await mockAPI.getProjectsByEventId(event.id)
+            
+            stats[event.id] = {
+              judges: approvedJudges,
+              projects: projects.length
+            }
+          })
+        )
+        
+        setEventStats(stats)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching events:", error)
+        setLoading(false)
+      }
+    }
+    
+    fetchEvents()
+  }, [])
+
+  // Handle filter changes
+  const handleFilterChange = (filters: EventFiltersType) => {
+    let filtered = [...events]
+    
+    // Filter by search term
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filtered = filtered.filter(event => 
+        event.name.toLowerCase().includes(searchTerm) || 
+        event.description.toLowerCase().includes(searchTerm)
+      )
+    }
+    
+    // Filter by status
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(event => event.status === filters.status)
+    }
+    
+    // Sort events
+    switch (filters.sortBy) {
+      case 'newest':
+        filtered.sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+        break
+      case 'oldest':
+        filtered.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+        break
+      case 'name-asc':
+        filtered.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case 'name-desc':
+        filtered.sort((a, b) => b.name.localeCompare(a.name))
+        break
+    }
+    
+    setFilteredEvents(filtered)
+  }
+  
+  // Handle event status change
+  const handleStatusChange = async (eventId: string, newStatus: 'upcoming' | 'active' | 'completed') => {
+    try {
+      await mockAPI.updateEvent(eventId, { status: newStatus })
+      
+      // Update local state
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId ? { ...event, status: newStatus } : event
+        )
+      )
+      
+      setFilteredEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId ? { ...event, status: newStatus } : event
+        )
+      )
+      
+      return Promise.resolve()
+    } catch (error) {
+      console.error("Error updating event status:", error)
+      return Promise.reject(error)
+    }
+  }
 
   return (
     <AdminLayout>
@@ -71,61 +133,46 @@ export default function EventsPage() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search events..." className="pl-8" />
-          </div>
-          <Button variant="outline">
-            <CalendarDays className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-        </div>
+        <EventFilters onFilterChange={handleFilterChange} />
 
-        <div className="grid gap-6">
-          {events.map((event) => (
-            <Card key={event.id}>
-              <CardContent className="p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-bold">{event.name}</h3>
-                    <p className="text-sm text-muted-foreground">{event.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="flex items-center gap-1">
-                        <CalendarDays className="h-4 w-4" />
-                        {event.date}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          event.status === "Active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                        }`}
-                      >
-                        {event.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/admin/events/${event.id}`}>
-                      <Button variant="default" size="sm">
-                        View Details
-                      </Button>
-                    </Link>
-                    <Link href={`/admin/events/${event.id}/edit`}>
-                      <Button variant="outline" size="sm">
-                        Edit
-                      </Button>
-                    </Link>
-                    <Button variant="outline" size="sm">
-                      End Judging
-                    </Button>
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-lg border p-6">
+                <div className="space-y-3">
+                  <div className="h-5 w-1/4 animate-pulse rounded bg-muted"></div>
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted"></div>
+                  <div className="flex gap-2">
+                    <div className="h-4 w-1/6 animate-pulse rounded bg-muted"></div>
+                    <div className="h-4 w-1/6 animate-pulse rounded bg-muted"></div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
+            <h3 className="mt-4 text-lg font-semibold">No events found</h3>
+            <p className="mb-4 mt-2 text-sm text-muted-foreground">
+              Try adjusting your search or filter criteria.
+            </p>
+            <Button variant="outline" onClick={() => handleFilterChange({ search: '', status: 'all', sortBy: 'newest' })}>
+              Reset Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredEvents.map((event) => (
+              <EventCard 
+                key={event.id} 
+                event={event} 
+                judgeCount={eventStats[event.id]?.judges || 0}
+                projectCount={eventStats[event.id]?.projects || 0}
+                onStatusChange={handleStatusChange}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </AdminLayout>
   )

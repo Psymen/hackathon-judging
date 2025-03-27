@@ -1,20 +1,25 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import AdminLayout from "@/components/admin-layout"
+import { EventForm } from "@/components/admin/events/event-form"
+import { mockAPI, Event } from "@/lib/mock-data"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/lib/auth-context"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Trash2 } from "lucide-react"
 
 export default function NewEventPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
+  const { user } = useAuth()
+  
   const [criteria, setCriteria] = useState([
     { id: 1, name: "Innovation", description: "How innovative is the solution?", weight: 30 },
     { id: 2, name: "Technical Complexity", description: "How technically complex is the implementation?", weight: 25 },
@@ -35,15 +40,47 @@ export default function NewEventPage() {
     setCriteria(criteria.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+  const handleSubmit = async (eventData: Partial<Event>) => {
+    if (!user) return
+    
+    setIsSubmitting(true)
+    try {
+      // Create the event
+      const newEvent = await mockAPI.createEvent({
+        ...eventData as Omit<Event, 'id' | 'createdAt' | 'updatedAt'>,
+        createdBy: user.id,
+      })
+      
+      // Create judging criteria for the event
+      for (const criterion of criteria) {
+        if (criterion.name.trim() && criterion.description.trim()) {
+          await mockAPI.createCriteria({
+            name: criterion.name,
+            description: criterion.description,
+            maxScore: 10,
+            weight: criterion.weight / 100, // Convert percentage to decimal
+            eventId: newEvent.id,
+          })
+        }
+      }
+      
+      toast({
+        title: "Event created",
+        description: "The event has been created successfully.",
+      })
+      
+      // Redirect to events list
       router.push("/admin/events")
-    }, 1000)
+    } catch (error) {
+      console.error("Error creating event:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create event. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -54,36 +91,11 @@ export default function NewEventPage() {
           <p className="text-muted-foreground">Set up a new hackathon event and define judging criteria.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Details</CardTitle>
-              <CardDescription>Basic information about your hackathon event.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Event Name</Label>
-                <Input id="name" placeholder="Summer Hackathon 2025" required />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="start-date">Start Date</Label>
-                  <Input id="start-date" type="date" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end-date">End Date</Label>
-                  <Input id="end-date" type="date" required />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Describe your hackathon event..." rows={4} required />
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="space-y-8">
+          {/* Event Form */}
+          <EventForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+          
+          {/* Judging Criteria */}
           <Card>
             <CardHeader>
               <CardTitle>Judging Criteria</CardTitle>
@@ -94,7 +106,13 @@ export default function NewEventPage() {
                 <div key={criterion.id} className="space-y-4 rounded-lg border p-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">Criterion {criterion.id}</h4>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveCriteria(criterion.id)}>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleRemoveCriteria(criterion.id)}
+                      disabled={criteria.length <= 1}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -143,16 +161,7 @@ export default function NewEventPage() {
               </Button>
             </CardContent>
           </Card>
-
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" onClick={() => router.push("/admin/events")}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create Event"}
-            </Button>
-          </div>
-        </form>
+        </div>
       </div>
     </AdminLayout>
   )
