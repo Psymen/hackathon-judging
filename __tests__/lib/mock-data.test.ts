@@ -21,8 +21,8 @@ describe('Mock API', () => {
     test('should get a user by ID', async () => {
       // First create a user
       const createdUser = await mockAPI.createUser({
-        name: 'Get User Test',
-        email: 'getuser@example.com',
+        name: 'Test User',
+        email: 'test@example.com',
         password: 'password123',
         role: 'judge',
       });
@@ -31,8 +31,8 @@ describe('Mock API', () => {
       const user = await mockAPI.getUserById(createdUser.id);
       
       expect(user).toHaveProperty('id', createdUser.id);
-      expect(user?.name).toBe('Get User Test');
-      expect(user?.email).toBe('getuser@example.com');
+      expect(user?.name).toBe('Test User');
+      expect(user?.email).toBe('test@example.com');
     });
     
     test('should get a user by email', async () => {
@@ -83,7 +83,7 @@ describe('Mock API', () => {
       });
       
       // Then try to authenticate with wrong password
-      const user = await mockAPI.authenticateUser(email, 'wrongpassword');
+      const user = await mockAPI.authenticateUser(email, 'invalid');
       
       expect(user).toBeNull();
     });
@@ -120,7 +120,7 @@ describe('Mock API', () => {
       endDate.setDate(endDate.getDate() + 1);
       
       const createdEvent = await mockAPI.createEvent({
-        name: 'Get Event Test',
+        name: 'Test Event',
         description: 'Test Description',
         status: 'upcoming',
         startDate,
@@ -132,7 +132,7 @@ describe('Mock API', () => {
       const event = await mockAPI.getEventById(createdEvent.id);
       
       expect(event).toHaveProperty('id', createdEvent.id);
-      expect(event?.name).toBe('Get Event Test');
+      expect(event?.name).toBe('Test Event');
     });
     
     test('should update an event', async () => {

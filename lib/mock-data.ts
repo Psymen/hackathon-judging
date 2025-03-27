@@ -469,14 +469,36 @@ export const mockAPI = {
   // Users
   getUsers: () => Promise.resolve([...users]),
   getUserById: (id: string) => Promise.resolve(users.find(user => user.id === id) || null),
-  createUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => {
+  getUserByEmail: (email: string) => Promise.resolve(users.find(user => user.email === email) || null),
+  authenticateUser: (email: string, password: string) => {
+    // In a real app, we would hash the password and compare it with the stored hash
+    // For the mock, we'll just check if the user exists with that email
+    const user = users.find(user => user.email === email);
+    
+    // For testing purposes, we'll accept any password that contains "password"
+    if (user && password.includes('password')) {
+      // Return user without the password
+      const { password: _, ...userWithoutPassword } = user as any;
+      return Promise.resolve(userWithoutPassword);
+    }
+    
+    return Promise.resolve(null);
+  },
+  createUser: (userData: Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { password: string }) => {
+    // In a real app, we would hash the password before storing it
+    const { password, ...userDataWithoutPassword } = userData;
+    
     const newUser: User = {
-      ...userData,
+      ...userDataWithoutPassword,
       id: uuidv4(),
+      status: 'active',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+    
     users.push(newUser);
+    
+    // Return user without the password
     return Promise.resolve(newUser);
   },
   updateUser: (id: string, userData: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>) => {

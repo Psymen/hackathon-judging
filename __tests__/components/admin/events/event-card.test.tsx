@@ -32,7 +32,8 @@ describe('EventCard', () => {
       <EventCard 
         event={mockEvent} 
         judgeCount={mockJudgeCount} 
-        projectCount={mockProjectCount} 
+        projectCount={mockProjectCount}
+        onStatusChange={jest.fn()}
       />
     );
     
@@ -40,15 +41,16 @@ describe('EventCard', () => {
     expect(screen.getByText('Test Event')).toBeInTheDocument();
     expect(screen.getByText('This is a test event')).toBeInTheDocument();
     expect(screen.getByText('Upcoming')).toBeInTheDocument();
-    expect(screen.getByText('Jun 15-16, 2025')).toBeInTheDocument();
-    expect(screen.getByText('8 Judges · 32 Projects')).toBeInTheDocument();
+    expect(screen.getByText(/Jun 15-16, 2025/)).toBeInTheDocument();
+    expect(screen.getByText(/8 Judges/)).toBeInTheDocument();
+    expect(screen.getByText(/32 Projects/)).toBeInTheDocument();
     
     // Check that buttons are rendered
     expect(screen.getByText('View Details')).toBeInTheDocument();
     expect(screen.getByText('Edit')).toBeInTheDocument();
     
     // For upcoming events, "Start Judging" button should be visible
-    expect(screen.getByText('Start Judging')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Start Judging/i })).toBeInTheDocument();
   });
   
   test('renders correct action button for active events', () => {

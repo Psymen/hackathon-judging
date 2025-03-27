@@ -9,22 +9,16 @@ jest.mock('@/lib/auth-context', () => ({
 }));
 
 // Mock the useRouter hook
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
   }),
 }));
 
 describe('ProtectedRoute', () => {
-  const mockPush = jest.fn();
-  
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Mock useRouter
-    jest.requireMock('next/navigation').useRouter.mockReturnValue({
-      push: mockPush,
-    });
   });
   
   test('renders loading state when checking authentication', () => {
@@ -42,7 +36,8 @@ describe('ProtectedRoute', () => {
     
     // Check that loading state is rendered
     expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    // The loading spinner doesn't have a role, so we'll check for its class instead
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument();
   });
   
   test('redirects to login when user is not authenticated', async () => {
