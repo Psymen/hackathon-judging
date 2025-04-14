@@ -16,7 +16,7 @@ This document outlines the development roadmap for the Hackathon Judging applica
 - [x] Initialize Next.js project
 - [x] Configure Tailwind CSS
 - [x] Set up UI component library
-- [ ] Configure ESLint and Prettier
+- [x] Configure ESLint and Prettier
 - [ ] Set up testing framework
 
 #### Authentication
